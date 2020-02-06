@@ -3,6 +3,7 @@ title: 'NICAR 2020 Stats III: Logistic Regression'
 output: html_notebook
 ---
 
+
 With linear regression, we can learn how explanatory variables influence a continuous normally-distributed result variable. But if the result variable is binary -- yes or no, male or female, passed or failed -- then logistic regression is the tool of choice.
 
 Stories that used logistic regression:
@@ -13,7 +14,7 @@ Stories that used logistic regression:
 * "Predict-A-Bill": AJC's model to predict bill passage (bills: passed/did not pass)
 * "Speed Traps: Who Gets a Ticket, Who Gets a Break?": Boston Globe's investigation of discrimination in ticketing for speeding (people stopped for speeding: ticket/warning)
 
-```{r message=FALSE, warning=FALSE}
+```{r setup}
 library(readr)
 library(dplyr)
 library(tidyr)
@@ -87,7 +88,7 @@ Linear regression function gave us a result, but what does it mean?  Values on t
 ```{r}
 print(m.linear)
 ```
-if we plug 70 percent into our linear equation taken from our regression coefficients, then the probability of getting a tick for driving 70 percent above the speed limit, then the probability of getting a ticket is -0.326162 + 0.019792 * 70
+if we plug 70 percent into our linear equation taken from our regression coefficients, then the probability of getting a tick for driving 70 percent above the speed limit, then the probability of getting a ticket is r -0.326162 + 0.019792 * 70
 ```{r}
 -0.326162 + 0.019792 * 70
 ```
