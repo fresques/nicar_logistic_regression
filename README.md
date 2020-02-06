@@ -1,2 +1,2 @@
 # nicar_logistic_regression
-NICAR Stats 3: Logistic Regression class
+NICAR2020 Stats 3: Logistic Regression hands-on class
