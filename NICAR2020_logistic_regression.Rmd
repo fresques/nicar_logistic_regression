@@ -3,6 +3,7 @@ title: 'NICAR 2020 Stats III: Logistic Regression'
 output: html_notebook
 ---
 
+[Github repository](https://github.com/NewsappAJC/nicar_logistic_regression)
 
 With linear regression, we can learn how explanatory variables influence a continuous normally-distributed result variable. But if the result variable is binary -- yes or no, male or female, passed or failed -- then logistic regression is the tool of choice.
 
