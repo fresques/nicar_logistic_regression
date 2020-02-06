@@ -1,0 +1,272 @@
+---
+title: 'NICAR 2020 Stats III: Logistic Regression'
+output: html_notebook
+---
+
+With linear regression, we can learn how explanatory variables influence a continuous normally-distributed result variable. But if the result variable is binary -- yes or no, male or female, passed or failed -- then logistic regression is the tool of choice.
+
+Stories that used logistic regression:
+
+* "Keep Out": Reveal's investigation of discrimination in mortgage lending (loan applicants: approved/denied)
+* "A Process of Jury Elimination": Dallas Morning News investigation of discrimination in jury selection (jury pool: excluded/not excluded)
+* "Presidential Pardons Heavily Favor Whites": ProPublica's investigation of pardons in the Bush White house (pardon requests: approved/denied)
+* "Predict-A-Bill": AJC's model to predict bill passage (bills: passed/did not pass)
+* "Speed Traps: Who Gets a Ticket, Who Gets a Break?": Boston Globe's investigation of discrimination in ticketing for speeding (people stopped for speeding: ticket/warning)
+
+```{r message=FALSE, warning=FALSE}
+library(readr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+## Importing and cleaning data
+```{r}
+data <- read_csv('data/boston.csv')
+```
+
+This data comes from Boston-area traffic stops. Each case in the data is someone stopped for speeding. The question is, did they get a ticket or just a warning? You can look at the data by clicking the variable name, data, in the RStudio Environment window on your right. We can also get a summary of our data with the str() function.
+```{r}
+str(data)
+```
+
+The data is a collection of character and number fields. Some fields - agency, citation, description - are not useful for our purpose. the useful character fields have already been converted for us to binary 1/0 values. SO for convenience sake, we'll eliminate fields that we won't be using.
+```{r}
+data <- select(data, ticket, day, mph, zone, mphover, mphpct, age, minority, female)
+head(data)
+```
+
+We also want to make sure there's no missing data. The is.na() function returns a TURE/FALSE matrix, TRUE if a value is missing, else FALSE. We can use the apply() function to apply the which function to the TRUE/FALSE matrix (the "2" argument means apply by column) to tell us which columns have missing values in which rows.
+```{r}
+apply(is.na(data), 2, which)
+```
+
+With only one bad row, we can just delete it. More missing data would be a bigger problem.
+```{r}
+nrow(data)
+data <- drop_na(data)
+nrow(data)
+```
+
+Or all at once with pipes:
+```{r message=FALSE, warning=FALSE}
+data <- read_csv('data/boston.csv') %>%
+  select(ticket,day,mph,zone,mphover,mphpct,age,minority,female) %>%
+  drop_na()
+
+summary(data)
+```
+
+
+One more thing to check: is our response variable split roughly equally between yes and no. If one greatly outnumbers the other, then our results will be biased.
+```{r}
+xtabs(~ticket, data=data)
+```
+Close enough! Now we can start analyzing our data.
+
+## Linear regression and binary result variables?
+
+We know that we can use a binary explanatory variable in a linear regression model. But what if our result variable is binary?
+```{r}
+plot(jitter(data$mphpct), data$ticket)
+```
+
+```{r}
+m.linear <- lm(ticket ~ mphpct, data=data)
+summary(m.linear)
+```
+
+```{r}
+plot(jitter(data$mphpct), data$ticket)
+abline(m.linear, col='green')
+```
+
+Linear regression function gave us a result, but what does it mean?  Values on the regression line represent the best estimate of the mean y value for a certain x value: mean(y) = sum of all the y's/count of cases for a specific x. Since y is binary, either 1 or 0, then that translates to tickets / stops, which is how we define probability. So the predicted value from our linear regression predicted value is the probability of getting a ticket when driving x percent over the speed limit.
+
+## But there's a problem
+```{r}
+print(m.linear)
+```
+if we plug 70 percent into our linear equation taken from our regression coefficients, then the probability of getting a tick for driving 70 percent above the speed limit, then the probability of getting a ticket is -0.326162 + 0.019792 * 70
+```{r}
+-0.326162 + 0.019792 * 70
+```
+
+Probabilities above 1 are impossible. A linear function - a function that gives us impossible values - won't work. We need a function that only gives us values between 1 and 0:
+```{r}
+# recreate our previous plot
+plot(data$mphpct, data$ticket, xlab="mphpct", ylab="ticket probability")
+m.linear <- lm(ticket ~ mphpct, data=data)
+abline(m.linear, col='green')
+
+# add logit function plot
+
+# create a logistic regression model:
+m.logistic <- glm(ticket ~ mphpct, data=data, family='binomial')
+
+# create a list of 100 mphpct values between 0 and 5 more than our highest value:
+plotData <- data.frame(mphpct=seq(0,max(data$mphpct) + 5, len=100))
+
+# Us our model to add the predicted probability of getting a ticket for those mphpct values:
+plotData$ticket = predict(m.logistic, newdata=plotData, type='response')
+
+# plot it:
+lines(ticket~mphpct, plotData, col='red')
+```
+But instead of y = A + Bx, we now have: p(y) = exp(A + Bx) / (exp(A + Bx) + 1)
+
+## A digression: Probability and Odds
+
+* Probability = tickets / all traffic stops
+* Odds = tickets / warning
+  + Also: p(tickets) / p(warning)
+  + Also: p(tickets) / 1 - p(tickets)
+
+* Probability of pulling a diamond from a deck of cards:
+  + 13 / 52 = 0.25 (25%)
+* Odds of pulling a diamond from a deck of cards:
+  + 13 / (52 - 13) = 1/3 = 0.33
+* or as a probability ratio:
+  + 0.25 / (1 - 0.75) = 0.33
+
+O = p / (1-p)
+
+p = O / (O + 1)
+
+## And Log(Odds): the Logit Function
+
+Odds can be any value from 0 and infinity. If the odds are in your favor - greater than 1:1 - the odds are greater than one. If the odds are against you - less than 1:1 - then the odds are between 1 and 0.
+
+Then log(Odds) makes everything nice and symmetric and gives you any values from -infinity to +infinity. Log(3 to 1) = 1.1. Log(1 to 3) = -1.1.
+
+Some algebra ... and the logit function:
+
+p(y) = exp(A + Bx) / (exp(A + Bx) + 1)
+
+...
+
+p(y) / (1 - p(y)) = exp(A + Bx)
+
+Odds(y) = exp(A + Bx)
+
+log(Odds(y)) = A + Bx  <-- the logit function: log(p / (1-p))
+
+If we convert the probabilities of getting a ticket to the log of the odds of getting a ticket, we're back to a line:
+```{r}
+# add log odds values to our plot data
+plotData$ticketLogOdds = log(plotData$ticket / (1 - plotData$ticket))
+
+# plot the log ods of getting a ticket ~ mphpct
+plot(plotData$mphpct, plotData$ticketLogOdds, type="l", col="red", ylab="log(odds of getting a picket)", xlab="mphpct")
+```
+Generalized Linear Model (GLM): link function(x) = A + Bx. In logistic regression, the link function is log(p/(1-p)), or log(Odds).
+
+## Analyzing the data ... finally
+
+Manually calculating the probability and odds of getting a ticket, or not.
+```{r}
+data %>%
+  group_by(ticket) %>%
+  summarise(freq=n(),prob=(n()/nrow(.)),odds=prob/(1-prob), logodds=log(odds)) %>%
+  round(., 4)
+```
+
+## The Null Model: the worst model
+```{r}
+m.null <- glm(ticket ~ 1, data=data, family='binomial')
+summary(m.null)
+```
+
+## A better model: ticket ~ mphpct
+```{r}
+m.mphpct <- glm(ticket ~ mphpct, data=data, family='binomial')
+summary(m.mphpct)
+```
+This is a better model. Residual deviance is reduced to 135.85. AIC is reduced to 139.85.
+
+The coefficient for mphpct is 0.09205, which (just like in linear regression) that a 1 percentage point increase in mphpct mean an increase in the log odds of getting a ticket of about 0.09:
+
+log odds at mphpct + 1 = log odds at mphpct + 0.09
+
+If you want to put this relationship in terms readers will understand, like odds, we take the exponent of the coefficient. But by taking the exponent, we change the addition to multiplication:
+```{r}
+exp(coef(m.mphpct))
+```
+
+odds at mphpct + 1 = odds at mphpct * 1.09
+
+Or
+
+For every one percentage point increase in speed over the limit, you increase your odds of getting a ticket by 9 percent.
+
+What about probability? We're not dealing with a straight line anymore:
+```{r}
+plot(data$mphpct, data$ticket, xlab="mphpct", ylab="ticket probability")
+lines(ticket~mphpct, plotData, col='red')
+```
+The slope of the line changes depending on the x value. So ... calculus: the partial derivative of the function at a specific x value or range of x values.
+
+## What if the independent variable is binary?
+```{r}
+m.minority <- glm(ticket ~ minority, data=data, family='binomial')
+summary(m.minority)
+```
+Intercept represents the estimate for non-minorities. The minority coefficient is the log of the odds ratio: minority odds / non-minority odds.
+```{r}
+exp(coef(m.minority))
+```
+Odds of a minority driver getting a ticket are 8-times greater than for a white driver.
+
+## R-squared ... sorta
+McFadden's Pseudo R-squared
+```{r}
+ll.null <- m.minority$null.deviance / -2
+ll.proposed <- m.minority$deviance / -2
+(ll.null - ll.proposed) / ll.null
+```
+p-value for R-squared:
+```{r}
+debfre <- m.minority$df.null
+1 - pchisq(2*(ll.proposed - ll.null), df=(length(m.minority$coefficients) - 1))
+```
+
+## The garbage disposal model
+```{r}
+m.all <- glm(ticket ~ ., data=data, family='binomial')
+summary(m.all)
+```
+mphover coefficient is NA because mphover is a linear combination of one and mph (mphover = mph - zone). 
+
+## Best predictive model
+```{r}
+m.best_predictions <- glm(ticket ~ minority + mphover + female + age, data=data, family=binomial)
+summary(m.best_predictions)
+```
+McFadden's Pseudo R-squared
+```{r}
+ll.null <- m.best_predictions$null.deviance/-2
+ll.proposed <- m.best_predictions$deviance/-2
+(ll.null - ll.proposed) / ll.null
+```
+p-value for R-squared:
+```{r}
+1 - pchisq(2*(ll.proposed - ll.null), df=(length(m.best_predictions$coefficients) - 1))
+```
+Visualize our predictions:
+```{r}
+predicted.data <- data.frame(
+  probability=m.best_predictions$fitted.values,
+  ticket=data$ticket)
+
+predicted.data <- predicted.data[
+  order(predicted.data$probability, decreasing=FALSE),]
+predicted.data$rank <- 1:nrow(predicted.data)
+
+ggplot(data=predicted.data, aes(x=rank, y=probability)) +
+  geom_point(aes(color=ticket), alpha=1, shape=4, stroke=2) +
+  xlab("Index") +
+  ylab("Predicted probability of getting a ticket")
+```
+
+
+
