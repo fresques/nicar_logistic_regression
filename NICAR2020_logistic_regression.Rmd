@@ -32,7 +32,7 @@ This data comes from Boston-area traffic stops. Each case in the data is someone
 str(data)
 ```
 
-The data is a collection of character and number fields. Some fields - agency, citation, description - are not useful for our purpose. the useful character fields have already been converted for us to binary 1/0 values. SO for convenience sake, we'll eliminate fields that we won't be using.
+The data is a collection of character and number fields. Some fields - agency, citation, description - are not useful for our purpose. the useful character fields have already been converted for us to binary 1/0 values. So for convenience sake, we'll eliminate fields that we won't be using.
 ```{r}
 data <- select(data, ticket, day, mph, zone, mphover, mphpct, age, minority, female)
 head(data)
@@ -68,7 +68,7 @@ Close enough! Now we can start analyzing our data.
 
 ## Linear regression and binary result variables?
 
-We know that we can use a binary explanatory variable in a linear regression model. But what if our result variable is binary?
+We know that we can use a binary independent variable in a linear regression model. But what if our result variable is binary?
 ```{r}
 plot(jitter(data$mphpct), data$ticket)
 ```
@@ -89,9 +89,9 @@ Linear regression function gave us a result, but what does it mean?  Values on t
 ```{r}
 print(m.linear)
 ```
-if we plug 70 percent into our linear equation taken from our regression coefficients, then the probability of getting a tick for driving 70 percent above the speed limit, then the probability of getting a ticket is r -0.326162 + 0.019792 * 70
+if we plug 70 percent into our linear equation taken from our regression coefficients, then the probability of getting a tick for driving 70 percent above the speed limit, then the probability of getting a ticket is r -0.326162 + 0.019792 * 71
 ```{r}
--0.326162 + 0.019792 * 70
+-0.326162 + 0.019792 * 71
 ```
 
 Probabilities above 1 are impossible. A linear function - a function that gives us impossible values - won't work. We need a function that only gives us values between 1 and 0:
@@ -178,8 +178,12 @@ data %>%
 m.null <- glm(ticket ~ 1, data=data, family='binomial')
 summary(m.null)
 ```
+Exponent of the coefficient
+```{r}
+exp(coef(m.null))
+```
 
-## A better model: ticket ~ mphpct
+## A more interestingx model: ticket ~ mphpct
 ```{r}
 m.mphpct <- glm(ticket ~ mphpct, data=data, family='binomial')
 summary(m.mphpct)
