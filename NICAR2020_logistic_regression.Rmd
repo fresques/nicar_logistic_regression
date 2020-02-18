@@ -2,6 +2,10 @@
 title: 'NICAR 2020 Stats III: Logistic Regression'
 output: html_notebook
 ---
+John Perry
+Data Journalism Team Technical Director
+The Atlanta Journal-Constitution
+John.Perry@ajc.com
 
 [Github repository](https://github.com/NewsappAJC/nicar_logistic_regression)
 
@@ -191,9 +195,9 @@ summary(m.mphpct)
 ```
 This is a better model. Residual deviance is reduced to 135.85. AIC is reduced to 139.85.
 
-The coefficient for mphpct is 0.09205, which (just like in linear regression) that a 1 percentage point increase in mphpct mean an increase in the log odds of getting a ticket of about 0.09:
+The coefficient for mphpct is 0.09205, which tells us (just like in linear regression) that a 1 percentage point increase in mphpct means an increase in the log odds of getting a ticket of about 0.09:
 
-log odds at mphpct + 1 = log odds at mphpct + 0.09
+log odds at mphpct + 1 = log odds of getting a ticket at mphpct + 0.09
 
 If you want to put this relationship in terms readers will understand, like odds, we take the exponent of the coefficient. But by taking the exponent, we change the addition to multiplication:
 ```{r}
