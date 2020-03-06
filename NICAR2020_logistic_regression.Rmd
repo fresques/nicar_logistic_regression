@@ -1,34 +1,58 @@
 ---
 title: 'NICAR 2020 Stats III: Logistic Regression'
-author: "John Perry"
-output: html_notebook
+author: "John Perry, Hannah Fresques"
+output:
+  html_document:
+    df_print: paged
 ---
 John Perry
 Data Journalism Team Technical Director
 The Atlanta Journal-Constitution
 John.Perry@ajc.com
 
-[Github repository](https://github.com/NewsappAJC/nicar_logistic_regression)
+Hannah Fresques
+Senior Data Reporter
+ProPublica
+hannah.fresques@propublica.org
+
+[Github repository](https://github.com/fresques/nicar_logistic_regression)
 
 With linear regression, we can learn how explanatory variables influence a continuous normally-distributed result variable. But if the result variable is binary -- yes or no, male or female, passed or failed -- then logistic regression is the tool of choice.
 
 Stories that used logistic regression:
 
-* "Keep Out": Reveal's investigation of discrimination in mortgage lending (loan applicants: approved/denied)
-* "A Process of Jury Elimination": Dallas Morning News investigation of discrimination in jury selection (jury pool: excluded/not excluded)
-* "Presidential Pardons Heavily Favor Whites": ProPublica's investigation of pardons in the Bush White house (pardon requests: approved/denied)
-* "Predict-A-Bill": AJC's model to predict bill passage (bills: passed/did not pass)
-* "Speed Traps: Who Gets a Ticket, Who Gets a Break?": Boston Globe's investigation of discrimination in ticketing for speeding (people stopped for speeding: ticket/warning)
+* ["Kept Out"](https://www.revealnews.org/article/how-we-identified-lending-disparities-in-federal-mortgage-data/): Reveal, 2018 
+  * investigation of discrimination in mortgage lending 
+  * (loan applicants: approved/denied)
 
-```{r setup}
+* "A Process of Jury Elimination": Dallas Morning News 
+  * investigation of discrimination in jury selection 
+  * jury pool: excluded/not excluded
+
+* ["Presidential Pardons Heavily Favor Whites"](https://www.propublica.org/article/how-propublica-analyzed-pardon-data): ProPublica, 2011
+  * investigation of pardons in the Bush White house 
+  * pardon requests: approved/denied
+
+* ["Predict-A-Bill"](https://www.ajc.com/news/local-govt--politics/predict-bill-assesses-chances-bills-becoming-law/lCBiX6zRVWKLf23x1z4esI/): AJC 
+  * model to predict bill passage 
+  * bills: passed/did not pass
+
+* ["Speed Traps: Who Gets a Ticket, Who Gets a Break?"](https://www.bostonglobe.com/metro/2017/07/28/old-axiom-proves-true-stay-less-than-above-speed-limit-and-you-unlikely-ticketed/HTU3lmnzuQ2hlaG1rvILFN/story.html): Boston Globe, 2017 
+  * investigation of discrimination in ticketing for speeding 
+  * people stopped for speeding: ticket/warning
+
+
+## Importing and cleaning data
+
+
+```{r setup, message = FALSE, warning=FALSE}
 library(readr)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
 ```
 
-## Importing and cleaning data
-```{r}
+```{r, warning=FALSE, message=FALSE}
 data <- read_csv('data/boston.csv')
 ```
 
@@ -39,7 +63,7 @@ str(data)
 
 The data is a collection of character and number fields. Some fields - agency, citation, description - are not useful for our purpose. the useful character fields have already been converted for us to binary 1/0 values. So for convenience sake, we'll eliminate fields that we won't be using.
 ```{r}
-data <- select(data, ticket, day, mph, zone, mphover, mphpct, age, minority, female)
+data <- data %>% select(ticket, day, mph, zone, mphover, mphpct, age, minority, female)
 head(data)
 ```
 
@@ -68,13 +92,13 @@ summary(data)
 
 One more thing to check: is our response variable split roughly equally between yes and no. If one greatly outnumbers the other, then our results will be biased.
 ```{r}
-xtabs(~ticket, data=data)
+data %>% count(ticket)
 ```
 Close enough!
 
 ## Linear regression with a dummy variable:
 
-With linear regression, you can use a binary expalnatory/independent variable. As an example, we can look at how minority --  binary, 0 or 1, variable -- interacts with speed zone. But first, lets do that the most simple way using grouped means:
+With linear regression, you can use a binary explanatory/independent variable. As an example, we can look at how minority --  binary, 0 or 1, variable -- interacts with speed zone. But first, lets do that the most simple way using grouped means:
 ```{r}
 data %>%
   group_by(minority) %>%
@@ -143,7 +167,13 @@ plotData$ticket = predict(m.logistic, newdata=plotData, type='response')
 # plot it:
 lines(ticket~mphpct, plotData, col='red')
 ```
-But instead of p(y) = A + Bx, we now have: p(y) = exp(A + Bx) / (exp(A + Bx) + 1). Anf how do we describe this relationship in our story?
+
+
+But instead of $p(y)=\beta _{0}+\beta _{1}x$, we now have: 
+
+$$p(y)={\frac {e^{(\beta _{0}+\beta _{1}x)}}{e^{(\beta _{0}+\beta _{1}x)}+1}}$$
+
+How do we describe this relationship in our story?
 
 ## A digression: Probability and Odds
 
@@ -163,45 +193,73 @@ O = p / (1-p)
 
 p = O / (O + 1)
 
-## And Log(Odds): the Logit Function
+Probability can be any value from 0 to 1. Which is why we can't use linear regression to predict it!
 
-Odds can be any value from 0 and infinity. If the odds are in your favor - greater than 1:1 - the odds are between 0 and infinity. If the odds are against you - less than 1:1 - then the odds are between 1 and 0.
+Odds can be any value from 0 and infinity. If the odds are in your favor - greater than 1:1 - the odds are between 1 and infinity. If the odds are against you - less than 1:1 - then the odds are between 0 and 1.
 
-Then log(Odds) makes everything nice and symmetric and gives you any values from -infinity to +infinity. Log(3 to 1) = 1.1. Log(1 to 3) = -1.1.
+Odds aren't a good dependent variable for linear regression either, because predicted values from linear regression can be -infinity to +infinity.
 
-Some algebra ... and the logit function:
+BUT! log(Odds) gives you any values from -infinity to +infinity. Some examples:
 
-p(y) = exp(A + Bx) / (exp(A + Bx) + 1)
+log(3 to 1) = log(3) = 1.1 
 
-...
+log(1 to 3) = log(0.3333) = -1.1
 
-p(y) / (1 - p(y)) = exp(A + Bx)
 
-Odds(y) = exp(A + Bx)
+## Log(Odds): the Logit Function
 
-log(Odds(y)) = A + Bx  <-- the logit function: log(p / (1-p))
+Our weird friend from before:
+
+$$p(y)={\frac {e^{(\beta _{0}+\beta _{1}x)}}{e^{(\beta _{0}+\beta _{1}x)}+1}}$$
+
+Can also be written as:
+(do the algebra if you want to check)
+
+$${\frac {p(y)}{1-p(y)}}={e^{(\beta _{0}+\beta _{1}x)}}$$
+
+which is the same as 
+
+$$Odds(y)={e^{(\beta _{0}+\beta _{1}x)}}$$
+
+If we take the log of both sides, we get:
+
+$$log(Odds(y))=\beta _{0}+\beta _{1}x$$
+This is the logit function. TADA.
 
 If we convert the probabilities of getting a ticket to the log of the odds of getting a ticket, we're back to a line:
 ```{r}
 # add log odds values to our plot data
-plotData$ticketLogOdds = log(plotData$ticket / (1 - plotData$ticket))
+# (remember that on plotData, ticket is continuous 0-1)
+plotData <- plotData %>% 
+  mutate(
+    ticketLogOdds = log(ticket / (1 - ticket))
+    )
 
-# plot the log ods of getting a ticket ~ mphpct
-plot(plotData$mphpct, plotData$ticketLogOdds, type="l", col="red", ylab="log(odds of getting a picket)", xlab="mphpct")
+# plot the log odds of getting a ticket as predicted by mphpct
+plot(plotData$mphpct, plotData$ticketLogOdds, type="l", col="red", ylab="log(odds of getting a ticket)", xlab="mphpct")
 ```
-Generalized Linear Model (GLM): link function(y) = A + Bx. In logistic regression, the link function is log(p/(1-p)), or log(Odds).
+
+A Generalized Linear Model (GLM) is $linkFunction(y)=\beta _{0}+\beta _{1}x$
+
+In logistic regression, the link function is $log({\frac {p}{1-p}})$, or $log(Odds)$
 
 ## Analyzing the data ... finally
 
 Manually calculating the probability and odds of getting a ticket, or not.
 ```{r}
+# (remember that on data, ticket is binary 0/1)
 data %>%
   group_by(ticket) %>%
-  summarise(freq=n(),prob=(n()/nrow(.)),odds=prob/(1-prob), logodds=log(odds)) %>%
+  summarise(
+    freq=n(),
+    prob=(n()/nrow(.)),
+    odds=prob/(1-prob), 
+    logodds=log(odds)
+  ) %>%
   round(., 4)
 ```
 
-## The Null Model: the worst model
+## The Null Model: should match simple calculations above
 ```{r}
 m.null <- glm(ticket ~ 1, data=data, family='binomial')
 summary(m.null)
@@ -211,12 +269,11 @@ Exponent of the coefficient
 exp(coef(m.null))
 ```
 
-## A more interestingx model: ticket ~ mphpct
+## A more interesting model: ticket ~ mphpct
 ```{r}
 m.mphpct <- glm(ticket ~ mphpct, data=data, family='binomial')
 summary(m.mphpct)
 ```
-This is a better model. Residual deviance is reduced to 135.85. AIC is reduced to 139.85.
 
 The coefficient for mphpct is 0.09205, which tells us (just like in linear regression) that a 1 percentage point increase in mphpct means an increase in the log of the odds of getting a ticket of about 0.09:
 
@@ -244,6 +301,23 @@ exp(coef(m.minority))
 ```
 Odds of a minority driver getting a ticket are 8-times greater than for a white driver.
 
+```{r}
+# (remember that on data, ticket is binary 0/1)
+data %>%
+  group_by(minority) %>%
+  summarise(
+    n=n(),
+    n_tickets=sum(ticket),
+    prob=n_tickets/n,
+    odds=prob/(1-prob), 
+    logodds=log(odds)
+  ) %>%
+  round(., 4)
+```
+
+The odds ratio is 5/0.5965 = 8.38223, which matches the coefficent above. 
+
+
 ## R-squared ... sorta
 McFadden's Pseudo R-squared
 ```{r}
@@ -256,14 +330,7 @@ p-value for R-squared:
 1 - pchisq(2*(ll.proposed - ll.null), df=(length(m.minority$coefficients) - 1))
 ```
 
-## The garbage disposal model
-```{r}
-m.all <- glm(ticket ~ ., data=data, family='binomial')
-summary(m.all)
-```
-mphover coefficient is NA because mphover is a linear combination of one and mph (mphover = mph - zone). 
-
-## Best predictive model
+## Let's make it multivariate
 ```{r}
 m.best_predictions <- glm(ticket ~ minority + mphover + female + age, data=data, family=binomial)
 summary(m.best_predictions)
@@ -282,16 +349,20 @@ Visualize our predictions:
 ```{r}
 predicted.data <- data.frame(
   probability = m.best_predictions$fitted.values,
-  ticket=data$ticket)
-
-predicted.data <- predicted.data[
-  order(predicted.data$probability, decreasing=FALSE),]
-predicted.data$rank <- 1:nrow(predicted.data)
+  ticket=data$ticket
+  ) %>% 
+  mutate(
+    rank=rank(probability),
+    ticket_desc=ifelse(ticket==1,'yes','no')
+  )
 
 ggplot(data=predicted.data, aes(x=rank, y=probability)) +
-  geom_point(aes(color=ticket), alpha=1, shape=4, stroke=2) +
+  geom_point(aes(color=ticket_desc), alpha=0.8, shape=4, stroke=2) +
+  scale_color_discrete(name="Actually got a ticket?") +
+  scale_y_continuous(labels = scales::percent) +
   xlab("Index") +
-  ylab("Predicted probability of getting a ticket")
+  ylab("Predicted probability of getting a ticket") +
+  theme_minimal()
 ```
 
 
